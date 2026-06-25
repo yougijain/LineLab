@@ -71,7 +71,18 @@ def _state_input(state: GameState) -> StateInput:
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"status": "ok", "service": "linelab-solver", "version": app.version}
+    return {
+        "status": "ok",
+        "service": "linelab-solver",
+        "version": app.version,
+        "scenario_store": "supabase" if scenarios.using_db() else "json",
+    }
+
+
+@app.on_event("shutdown")
+def _shutdown() -> None:
+    from . import db
+    db.close()
 
 
 @app.get("/api/config")
