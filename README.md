@@ -1,114 +1,118 @@
 # LineLab
 
-An independent, two-product educational website for auto-battler players.
+**Learn the handful of Teamfight Tactics decisions that get you to top 4.**
 
-1. **LineLab Solver** *(built — Product A)* — an **original** auto-battler
-   decision-theory engine. A "poker solver for the economy game": describe a
-   spot and it runs thousands of Monte Carlo games to compare your lines by
-   expected placement, top-4 / first rate, and risk. It runs on a wholly
-   **fictional** game model and contains **no Riot Games / Teamfight Tactics
-   names, assets, data, combat formulas, or live-client access**.
+LineLab is an independent, beginner-focused tool for learning TFT *fundamentals* —
+the durable, patch-agnostic habits (economy, leveling, rolling, items, positioning,
+reading the lobby) that separate a bleeding-out new player from a reliable top-4
+finisher. It teaches by giving you one clear move at a time, then lets you drill it
+against a live coach.
 
-2. **LineLab TFT Study** *(shell only — Product B)* — a planned Teamfight
-   Tactics study companion (static patch guides, comps, flashcards, and
-   self-player post-game review). The UI shell exists with neutral placeholders;
-   the real TFT content/assets/API features are added **only after Riot
-   developer registration and clearance**.
-
-> Why split it this way? Riot's developer policy encourages tools that help
-> players improve over time — especially pre-game best practices and post-game
-> analysis — while disallowing dynamic real-time info, opponent scouting, and
-> apps that dictate in-game decisions. The Solver sidesteps IP entirely by being
-> an original model; the Study product stays static/pre-game or strictly
-> post-game on the player's own data. See [`/compliance`](frontend/app/compliance/page.tsx)
-> and [`docs/MODEL.md`](docs/MODEL.md).
+It uses **no Riot Games assets, artwork, champion data, or live-client access**, and
+is not affiliated with or endorsed by Riot Games. The Arena and Solver run on an
+original Monte Carlo simulation model.
 
 ---
+
+## What's inside
+
+- **Learn** (`/learn`) — 14 ranked fundamentals in 5 modules, with a "must-know 6"
+  shown first and a "Go deeper" reveal. Each card is a single actionable rule plus
+  the common mistake it fixes.
+- **Arena** (`/play`) — a playable auto-battler with a live coach that calls one move
+  at a time, so you drill the habits instead of reading about them. Includes a
+  post-game review that grades every macro decision.
+- **Solver** (`/solver`) — describe any spot and get one recommended move
+  (**ROLL / LEVEL / SAVE / STABILIZE**) with a plain-English why. The full
+  expected-value table, decision tree, and scenario builder live behind an
+  **Advanced** toggle.
+
+The coach never asks you to rate your own board — it reads health, gold, level, and
+board strength for you, runs thousands of fast simulated games, and collapses the
+result into a single verb.
+
+## Tech stack
+
+| Layer | Stack |
+|------|-------|
+| Frontend | Next.js 14 (App Router), TypeScript, Tailwind CSS |
+| Backend | FastAPI + Python, a Monte Carlo expected-value engine |
+| Database | Supabase Postgres (saved scenarios); falls back to a local JSON store |
+| Optional | AI chat-coach via the Anthropic SDK, off unless `ANTHROPIC_API_KEY` is set |
 
 ## Repository layout
 
 ```
-LineLab/
-├── backend/            FastAPI + Python Monte Carlo solver (the technical core)
-│   ├── app/
-│   │   ├── main.py            FastAPI app + endpoints
-│   │   ├── models.py          Pydantic wire models
-│   │   ├── config.py          Genericized game constants
-│   │   ├── cache.py           LRU result cache
-│   │   ├── scenarios.py       Built-in + saved scenario store
-│   │   └── solver/            The engine
-│   │       ├── economy.py     gold / interest / streaks
-│   │       ├── leveling.py    XP / level costs
-│   │       ├── shop.py        tiered odds + estimate_upgrade_probability
-│   │       ├── units.py       original fictional roster
-│   │       ├── traits.py      original fictional trait system
-│   │       ├── items.py       original fictional stat modules
-│   │       ├── combat_model.py estimate_fight_outcome / estimate_hp_loss
-│   │       ├── rollout.py     Monte Carlo lobby engine + simulate_action
-│   │       ├── evaluator.py   compare_actions + EV aggregation
-│   │       └── explanation.py natural-language rationale
-│   ├── tests/                 pytest suite
-│   └── scripts/               calibrate.py, smoke.py, make_sample.py
-│
-├── frontend/           Next.js 14 + TypeScript + Tailwind website
-│   ├── app/                   landing, solver, study, compliance, terms, privacy
-│   ├── components/            Nav, Footer, solver/*
-│   └── lib/                   api client, types, embedded sample fallback
-│
-└── docs/               MODEL.md, RIOT_SUBMISSION.md
+backend/    FastAPI app + Monte Carlo solver
+  app/
+    main.py            FastAPI app + endpoints
+    models.py          Pydantic wire models
+    solver/            the engine (economy, leveling, shop, rollout, evaluator, …)
+    chat.py            optional Anthropic-backed chat-coach
+  tests/               pytest suite
+frontend/   Next.js app
+  app/                 landing, learn, play (Arena), solver, compliance, terms, privacy
+  lib/game/            client-side Arena engine
+  lib/coach/           one-verb coach (ROLL/LEVEL/SAVE/STABILIZE)
+  lib/learn/           fundamentals curriculum content
+  components/          UI (Nav, Footer, play/*, solver/*, learn/*, coach/*)
+docs/       design + model notes
 ```
 
----
+## Running locally
 
-## Quick start
+You need **two** processes: the Python backend (the simulation engine) and the
+Next.js frontend (the UI).
 
-### 1. Backend (the solver engine)
+### 1. Backend (port 8000)
 
 ```bash
 cd backend
-py -3.13 -m venv .venv                 # Windows; use python3 on macOS/Linux
-.venv/Scripts/python -m pip install -r requirements.txt
-.venv/Scripts/python -m pytest         # run the test suite
-.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
+python -m venv .venv
+. .venv/Scripts/activate          # macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env              # optional: fill in for Supabase / chat-coach
+uvicorn app.main:app --port 8000
 ```
 
-API now at `http://localhost:8000` (interactive docs at `/docs`).
+The backend runs fine with an empty `.env` — it falls back to a local JSON scenario
+store and leaves the AI chat-coach disabled. `GET /api/health` reports which stores
+are active. Interactive API docs are at `/docs`.
 
-Useful scripts:
-
-```bash
-.venv/Scripts/python scripts/calibrate.py   # print EV tables for sample spots
-.venv/Scripts/python scripts/smoke.py        # end-to-end API smoke test
-```
-
-### 2. Frontend (the website)
+### 2. Frontend (port 3000)
 
 ```bash
 cd frontend
 npm install
-cp .env.local.example .env.local       # NEXT_PUBLIC_API_URL=http://localhost:8000
-npm run dev                            # http://localhost:3000
+cp .env.local.example .env.local   # set NEXT_PUBLIC_API_URL if not localhost:8000
+npm run dev
 ```
 
-The Solver page calls the backend live. If the backend is unreachable it falls
-back to an embedded sample response (with a banner) so the site stays reviewable
-offline — handy for a static preview.
+Open <http://localhost:3000/learn> to start with the fundamentals, or
+<http://localhost:3000/play> to practice in the Arena. If the backend is
+unreachable, the Solver falls back to an embedded sample (with a banner) so the site
+stays reviewable offline.
 
----
+### Environment variables
+
+Real secrets live only in **gitignored** `.env` files (never committed). See
+`backend/.env.example` and `frontend/.env.local.example`. Key ones:
+
+- `SUPABASE_DB_URL` — Postgres session-pooler connection string (optional; enables the Supabase scenario store)
+- `ANTHROPIC_API_KEY` — enables the AI chat-coach (optional)
+- `NEXT_PUBLIC_API_URL` — where the frontend finds the backend (defaults to `http://localhost:8000`)
 
 ## The Solver API
 
-| Method | Path                       | Purpose                                   |
-| ------ | -------------------------- | ----------------------------------------- |
-| GET    | `/api/health`              | liveness                                  |
-| GET    | `/api/config`              | option vocabulary for the builder         |
-| POST   | `/api/compare`             | compare candidate lines for a game state  |
-| GET    | `/api/actions`             | preview the candidate lines for a state   |
-| GET    | `/api/scenarios`           | built-in + saved teaching spots           |
-| POST   | `/api/scenarios`           | save a scenario                           |
-| DELETE | `/api/scenarios/{id}`      | delete a saved scenario                   |
-
-Example:
+| Method | Path | Purpose |
+| ------ | ---- | ------- |
+| GET | `/api/health` | liveness + which stores/features are active |
+| GET | `/api/config` | option vocabulary for the scenario builder |
+| POST | `/api/compare` | compare candidate lines for a game state |
+| POST | `/api/project` | project a chosen line forward (HP/placement/survival per stage) |
+| POST | `/api/review` | grade a sequence of past decisions |
+| POST | `/api/coach/chat` | streaming AI chat-coach (requires `ANTHROPIC_API_KEY`) |
+| GET/POST/DELETE | `/api/scenarios` | built-in + saved teaching spots |
 
 ```bash
 curl -s localhost:8000/api/compare -H 'content-type: application/json' -d '{
@@ -119,19 +123,29 @@ curl -s localhost:8000/api/compare -H 'content-type: application/json' -d '{
 }'
 ```
 
+## Compliance
+
+LineLab teaches universal TFT concepts using the game's own vocabulary (gold,
+interest, levels, rolls, traits, augments) but ships no Riot artwork, icons,
+champion data, or patch tables, and never connects to the live game — no overlay,
+real-opponent scouting, in-client "do this now" prescriptions, automation, or memory
+reading. The Arena's opponents are simulated. See
+[`/compliance`](frontend/app/compliance/page.tsx) for the full statement.
+
+## Deployment
+
+- **Frontend** → Vercel (set `NEXT_PUBLIC_API_URL` to your backend's URL).
+- **Backend** → Render / Fly.io / Railway (`uvicorn app.main:app`).
+- **Database** → Supabase Postgres (set `SUPABASE_DB_URL`).
+
+Set all secrets as host environment variables — never commit them.
+
+## License
+
+[MIT](LICENSE) © 2026 yougijain
+
 ---
 
-## What this is **not** (by design)
-
-No live TFT solver, no live board reader, no TFT clone simulator, no opponent
-scouting, no game-client automation/memory reading, and no "buy/roll/level now"
-in-game assistant. See [`docs/MODEL.md`](docs/MODEL.md) for the full model and
-compliance rationale, and [`docs/RIOT_SUBMISSION.md`](docs/RIOT_SUBMISSION.md)
-for the developer-registration plan.
-
-## Deployment targets
-
-- **Frontend:** Vercel (static export-friendly; set `NEXT_PUBLIC_API_URL`).
-- **Backend:** Render / Fly.io / Railway (`uvicorn app.main:app`).
-- **Database (later):** Supabase / Neon / Postgres replaces the JSON scenario
-  store for user accounts and saved scenarios.
+*Teamfight Tactics and TFT are trademarks of Riot Games, Inc., referenced here
+nominatively for identification and educational purposes only. LineLab is not
+affiliated with, endorsed by, or sponsored by Riot Games.*
