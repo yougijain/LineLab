@@ -12,6 +12,7 @@ import {
   interest,
   streakBonus,
 } from "@/lib/game/config";
+import { CONDITION_BY_KEY, TIER_COLOR } from "@/lib/game/conditions";
 import type { DecisionGrade, Game } from "@/lib/game/types";
 import type { LearnConfig } from "@/lib/game/tiers";
 
@@ -132,6 +133,35 @@ export default function StatusBar({
           </div>
         </div>
       </div>
+
+      {/* Active conditions strip */}
+      {(() => {
+        const mods = game.conditions.modifiers
+          .map((k) => CONDITION_BY_KEY[k])
+          .filter((d): d is NonNullable<typeof d> => !!d)
+          .filter((d) => detailed || d.category === "econ"); // Beginner: econ only
+        const eventDef = game.conditions.event ? CONDITION_BY_KEY[game.conditions.event] : null;
+        if (mods.length === 0 && (!eventDef || !detailed)) return null;
+        return (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-ink-700 pt-2">
+            {mods.map((d) => (
+              <span
+                key={d.key}
+                className="rounded-full border px-2 py-0.5 text-[10px]"
+                style={{ borderColor: `${TIER_COLOR[d.tier]}66`, color: TIER_COLOR[d.tier] }}
+                title={d.blurb}
+              >
+                {d.name}
+              </span>
+            ))}
+            {detailed && eventDef && (
+              <span className="chip border-amber-500/40 text-amber-300" title={eventDef.blurb}>
+                Stage: {eventDef.name}
+              </span>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

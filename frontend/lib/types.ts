@@ -92,6 +92,40 @@ export interface ReviewResponse {
   study_index: number;
 }
 
+// ---- Future-stage projection ----
+
+export interface StageProjection {
+  stage: number;
+  survival: number;
+  exp_hp: number;
+  strength_vs_lobby: number;
+  exp_placement: number;
+}
+
+export interface ProjectResponse {
+  state: GameState;
+  line_key: string;
+  line_label: string;
+  trajectory: StageProjection[];
+  watch_next: string;
+  final_placement: number;
+  top4_rate: number;
+  cached: boolean;
+}
+
+// ---- Chat coach ----
+
+export interface ChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface HealthInfo {
+  status: string;
+  scenario_store: string;
+  chat_coach: boolean;
+}
+
 export const DEFAULT_STATE: GameState = {
   stage: "midgame",
   hp: 58,

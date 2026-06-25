@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BOT_DIFFICULTIES, LEARN_TIERS } from "@/lib/game/tiers";
+import { randomSeed } from "@/lib/game/engine";
 import type { Goal, LearnTier, Settings } from "@/lib/game/types";
 
 const LEARN_ORDER: LearnTier[] = ["beginner", "standard", "pro"];
@@ -11,6 +12,7 @@ export default function SetupScreen({ onStart }: { onStart: (s: Settings) => voi
   const [botDiff, setBotDiff] = useState("ranked");
   const [goal, setGoal] = useState<Goal>("top4");
   const [pairedHint, setPairedHint] = useState(true);
+  const [seedInput, setSeedInput] = useState("");
 
   const cfg = LEARN_TIERS[learnTier];
 
@@ -103,11 +105,27 @@ export default function SetupScreen({ onStart }: { onStart: (s: Settings) => voi
           )}
         </div>
 
+        {/* Seed (advanced) — leave blank for a fresh random run, or enter one to replay */}
+        <div className="mt-5">
+          <div className="flex items-center justify-between">
+            <span className="label">Seed</span>
+            <span className="text-[11px] text-slate-500">blank = random run · enter to replay</span>
+          </div>
+          <input
+            value={seedInput}
+            onChange={(e) => setSeedInput(e.target.value.replace(/[^0-9]/g, ""))}
+            placeholder="(random)"
+            inputMode="numeric"
+            className="num mt-1.5 w-full rounded-lg border border-ink-700 bg-ink-950/50 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600"
+          />
+        </div>
+
         <button
-          onClick={() =>
-            onStart({ learnTier, botDiff, goal, seed: Math.floor(Math.random() * 2 ** 31) })
-          }
-          className="btn-primary mt-7 w-full py-2.5 text-base"
+          onClick={() => {
+            const seed = seedInput ? Number(seedInput) & 0x7fffffff : randomSeed();
+            onStart({ learnTier, botDiff, goal, seed });
+          }}
+          className="btn-primary mt-6 w-full py-2.5 text-base"
         >
           Start game →
         </button>

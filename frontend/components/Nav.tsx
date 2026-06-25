@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 const links = [
-  { href: "/solver", label: "Solver" },
+  { href: "/learn", label: "Learn" },
   { href: "/play", label: "Arena" },
-  { href: "/study", label: "TFT Study" },
+  { href: "/solver", label: "Solver" },
   { href: "/compliance", label: "Compliance" },
 ];
 
@@ -29,8 +29,8 @@ export default function Nav() {
               {l.label}
             </Link>
           ))}
-          <Link href="/solver" className="btn-primary ml-2">
-            Open Solver
+          <Link href="/learn" className="btn-primary ml-2">
+            Start learning
           </Link>
         </nav>
       </div>

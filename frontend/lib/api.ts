@@ -1,8 +1,11 @@
 // Thin client for the LineLab Solver API, with a graceful offline fallback.
 
 import type {
+  ChatTurn,
   CompareResponse,
   GameState,
+  HealthInfo,
+  ProjectResponse,
   ReviewDecisionInput,
   ReviewResponse,
   Scenario,
@@ -45,6 +48,77 @@ export async function compare(
   } catch (err) {
     // Fall back to the embedded sample so the UI stays meaningful offline.
     return { data: { ...SAMPLE_RESULT, state }, offline: true };
+  }
+}
+
+export async function getHealth(): Promise<HealthInfo | null> {
+  try {
+    return await req<HealthInfo>("/api/health");
+  } catch {
+    return null;
+  }
+}
+
+export async function project(
+  state: GameState,
+  lineKey?: string,
+  nRollouts = 2000,
+): Promise<ProjectResponse | null> {
+  try {
+    return await req<ProjectResponse>("/api/project", {
+      method: "POST",
+      body: JSON.stringify({ state, line_key: lineKey ?? null, n_rollouts: nRollouts }),
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Stream the chat-coach reply. Calls onDelta with each text chunk; resolves on done. */
+export async function coachChat(
+  body: {
+    state: GameState;
+    compare: CompareResponse | null;
+    log: ReviewDecisionInput[];
+    history: ChatTurn[];
+    message: string;
+    tier: string;
+  },
+  onDelta: (text: string) => void,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${API_URL}/api/coach/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok || !res.body) {
+      return { ok: false, error: res.status === 503 ? "Chat coach is off (no API key)." : `HTTP ${res.status}` };
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const parts = buf.split("\n\n");
+      buf = parts.pop() ?? "";
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith("data:")) continue;
+        try {
+          const obj = JSON.parse(line.slice(5).trim());
+          if (obj.t) onDelta(obj.t);
+          if (obj.error) return { ok: false, error: obj.error };
+        } catch {
+          /* ignore partial */
+        }
+      }
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: "Coach offline." };
   }
 }
 
