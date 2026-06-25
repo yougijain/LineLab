@@ -46,9 +46,11 @@ export default function PrivacyPage() {
         <section>
           <h2 className="font-semibold text-white">5. Third parties</h2>
           <p className="mt-1">
-            Hosting, analytics, and (after clearance) the game publisher&rsquo;s
-            API may process data to provide the Service. We use only the access
-            necessary for each feature.
+            Hosting and analytics may process data to provide the Service. If
+            personalized features are ever added, Riot Games&rsquo; official
+            developer API would process only your own data, after registration on
+            the Riot Developer Portal. We use only the access necessary for each
+            feature.
           </p>
         </section>
         <section>

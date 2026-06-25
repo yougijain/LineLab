@@ -1,8 +1,8 @@
 // Board-strength helpers shared by the engine and the solver-state mapping.
 
 import { STAR_MULT, TIER_BASE } from "./config";
-import { MODULES_BY_KEY, traitBonus } from "./data";
-import type { FieldUnit, Hero } from "./types";
+import { MODULES_BY_KEY, ROSTER_BY_KEY, traitBonus } from "./data";
+import type { FieldUnit, Game, Hero } from "./types";
 
 /** Distinct fielded units per trait (a unit counts once per trait). */
 export function fieldedTraitCounts(board: FieldUnit[]): Record<string, number> {
@@ -45,4 +45,43 @@ export function itemCount(hero: Hero): number {
   let n = hero.itemBank.length;
   for (const u of [...hero.board, ...hero.bench]) n += u.items.length;
   return n;
+}
+
+export type ThreatLevel = "Low" | "Even" | "High";
+
+/** How threatening a bot is relative to the hero's current board. */
+export function threatBand(botStrength: number, hero: Hero): ThreatLevel {
+  const hs = heroBoardStrength(hero) || 1;
+  const r = botStrength / hs;
+  return r < 0.9 ? "Low" : r > 1.1 ? "High" : "Even";
+}
+
+export interface Contention {
+  key: string;
+  name: string;
+  rivalCopies: number;
+  rivals: string[];
+}
+
+/** Which of the hero's units are contested by rival bot boards (pool pressure). */
+export function poolContention(game: Game): Contention[] {
+  const heroKeys = new Set([...game.hero.board, ...game.hero.bench].map((u) => u.key));
+  const tally: Record<string, { copies: number; rivals: Set<string> }> = {};
+  for (const bot of game.bots) {
+    if (!bot.alive) continue;
+    for (const u of bot.board.units) {
+      if (!heroKeys.has(u.key)) continue;
+      if (!tally[u.key]) tally[u.key] = { copies: 0, rivals: new Set() };
+      tally[u.key].copies += 1;
+      tally[u.key].rivals.add(bot.name);
+    }
+  }
+  return Object.entries(tally)
+    .map(([key, v]) => ({
+      key,
+      name: ROSTER_BY_KEY[key]?.name ?? key,
+      rivalCopies: v.copies,
+      rivals: [...v.rivals],
+    }))
+    .sort((a, b) => b.rivalCopies - a.rivalCopies);
 }
