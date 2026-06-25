@@ -12,8 +12,8 @@ import { DEFAULT_STATE } from "@/lib/types";
 import ScenarioBuilder, { type Precision } from "@/components/solver/ScenarioBuilder";
 import EVTable from "@/components/solver/EVTable";
 import DecisionTree from "@/components/solver/DecisionTree";
-import ExplanationPanel from "@/components/solver/ExplanationPanel";
 import SavedScenarios from "@/components/solver/SavedScenarios";
+import VerbBadge from "@/components/coach/VerbBadge";
 
 const ROLLOUTS: Record<Precision, number> = {
   fast: 800,
@@ -29,6 +29,7 @@ export default function SolverPage() {
   const [loading, setLoading] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [advanced, setAdvanced] = useState(false);
 
   const runWith = useCallback(async (s: GameState, p: Precision) => {
     setLoading(true);
@@ -69,17 +70,24 @@ export default function SolverPage() {
 
   const selectedLine =
     result?.results.find((r) => r.key === selectedKey) ?? null;
+  const presets = scenarios.slice(0, 6);
 
   return (
     <div className="py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-white">
-          The Solver
-        </h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Describe a spot and compare your lines by expected placement. Original
-          abstract auto-battler model — no third-party game data.
-        </p>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">The Solver</h1>
+          <p className="mt-1 max-w-xl text-sm text-slate-400">
+            Stuck on a decision? Pick a spot and get one move with a plain-English
+            why. Want the full expected-value math? Flip on Advanced.
+          </p>
+        </div>
+        <button
+          onClick={() => setAdvanced((a) => !a)}
+          className={`chip ${advanced ? "border-brand/50 text-brand" : ""}`}
+        >
+          Advanced {advanced ? "on" : "off"}
+        </button>
       </div>
 
       {offline && (
@@ -90,54 +98,75 @@ export default function SolverPage() {
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
-        {/* Left: builder + spots */}
-        <div className="space-y-5">
-          <ScenarioBuilder
-            state={state}
-            setState={setState}
-            precision={precision}
-            setPrecision={setPrecision}
-            onRun={() => runWith(state, precision)}
-            onSave={onSave}
-            loading={loading}
-          />
-          <SavedScenarios scenarios={scenarios} onLoad={onLoad} onDelete={onDelete} />
-        </div>
+      {/* Default view: one verb + quick preset spots */}
+      <div className="space-y-4">
+        <VerbBadge data={result} state={state} loading={loading} />
 
-        {/* Right: results */}
-        <div className="space-y-5">
-          {result ? (
-            <>
-              <ExplanationPanel data={result} />
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-white">
-                    Lines ranked by EV
-                  </h2>
-                  <span className="num text-xs text-slate-500">
-                    {loading
-                      ? "simulating…"
-                      : `${result.elapsed_ms} ms${result.cached ? " · cached" : ""}`}
-                  </span>
-                </div>
-                <EVTable
-                  results={result.results}
-                  bestKey={result.best_key}
-                  selectedKey={selectedKey}
-                  goal={result.state.goal}
-                  onSelect={setSelectedKey}
-                />
-              </div>
-              <DecisionTree line={selectedLine} />
-            </>
-          ) : (
-            <div className="card grid h-64 place-items-center p-5 text-sm text-slate-400">
-              {loading ? "Running the first simulation…" : "Build a spot and run the solver."}
+        {presets.length > 0 && (
+          <div>
+            <div className="label mb-2">Try a spot</div>
+            <div className="flex flex-wrap gap-2">
+              {presets.map((sc) => (
+                <button
+                  key={sc.id}
+                  onClick={() => onLoad(sc)}
+                  className="chip hover:border-brand/40 hover:text-white"
+                  title={sc.description || sc.name}
+                >
+                  {sc.name}
+                </button>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+
+      {/* Advanced: full builder, EV table, decision tree */}
+      {advanced && (
+        <div className="mt-8 grid gap-5 lg:grid-cols-[360px_1fr]">
+          <div className="space-y-5">
+            <ScenarioBuilder
+              state={state}
+              setState={setState}
+              precision={precision}
+              setPrecision={setPrecision}
+              onRun={() => runWith(state, precision)}
+              onSave={onSave}
+              loading={loading}
+            />
+            <SavedScenarios scenarios={scenarios} onLoad={onLoad} onDelete={onDelete} />
+          </div>
+
+          <div className="space-y-5">
+            {result ? (
+              <>
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold text-white">Lines ranked by EV</h2>
+                    <span className="num text-xs text-slate-500">
+                      {loading
+                        ? "simulating…"
+                        : `${result.elapsed_ms} ms${result.cached ? " · cached" : ""}`}
+                    </span>
+                  </div>
+                  <EVTable
+                    results={result.results}
+                    bestKey={result.best_key}
+                    selectedKey={selectedKey}
+                    goal={result.state.goal}
+                    onSelect={setSelectedKey}
+                  />
+                </div>
+                <DecisionTree line={selectedLine} />
+              </>
+            ) : (
+              <div className="card grid h-64 place-items-center p-5 text-sm text-slate-400">
+                {loading ? "Running the simulation…" : "Build a spot and run the solver."}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

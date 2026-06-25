@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  applyOfferPick,
   buyUnit,
   buyXP,
   benchUnit,
@@ -15,11 +16,15 @@ import {
 } from "@/lib/game/engine";
 import { LEARN_TIERS } from "@/lib/game/tiers";
 import type { DecisionGrade, FieldUnit, Game, Settings } from "@/lib/game/types";
-import type { CompareResponse, GameState } from "@/lib/types";
-import { reviewGame } from "@/lib/api";
+import type { CompareResponse, GameState, ReviewDecisionInput } from "@/lib/types";
+import { getHealth, reviewGame } from "@/lib/api";
 import SetupScreen from "@/components/play/SetupScreen";
 import StatusBar from "@/components/play/StatusBar";
 import OpponentsRail from "@/components/play/OpponentsRail";
+import ThreatBoard from "@/components/play/ThreatBoard";
+import ScoutDrawer from "@/components/play/ScoutDrawer";
+import ScoutStrip from "@/components/play/ScoutStrip";
+import OfferModal from "@/components/play/OfferModal";
 import Board from "@/components/play/Board";
 import Bench from "@/components/play/Bench";
 import Shop from "@/components/play/Shop";
@@ -44,6 +49,12 @@ export default function PlayPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [verdict, setVerdict] = useState<DecisionGrade | null>(null);
   const [coachData, setCoachData] = useState<CompareResponse | null>(null);
+  const [scoutId, setScoutId] = useState<string | null>(null);
+  const [chatEnabled, setChatEnabled] = useState(false);
+
+  useEffect(() => {
+    getHealth().then((h) => setChatEnabled(!!h?.chat_coach));
+  }, []);
 
   if (!game) {
     return (
@@ -76,6 +87,7 @@ export default function PlayPage() {
               setSel(null);
               setVerdict(null);
               setCoachData(null);
+              setScoutId(null);
             }}
           />
         </div>
@@ -153,10 +165,17 @@ export default function PlayPage() {
         <div className="flex items-center gap-2 text-xs">
           <span className="chip">Tier: {cfg.label}</span>
           <span className="chip">Bots: {game.settings.botDiff}</span>
+          <button
+            onClick={() => navigator.clipboard?.writeText(String(game.seed))}
+            className="chip num text-slate-400 hover:text-white"
+            title="Copy seed — replay this exact run from Setup"
+          >
+            Seed {game.seed}
+          </button>
           <button onClick={() => setHistoryOpen(true)} className="btn-ghost px-3 py-1 text-xs">
             History
           </button>
-          <button onClick={() => { setGame(null); setSel(null); }} className="text-slate-400 hover:text-white">
+          <button onClick={() => { setGame(null); setSel(null); setScoutId(null); }} className="text-slate-400 hover:text-white">
             Quit
           </button>
         </div>
@@ -168,7 +187,18 @@ export default function PlayPage() {
 
           <NextStep best={best} hero={game.hero} cfg={cfg} />
 
-          <OpponentsRail bots={game.bots} nextOpponent={game.bots.find((b) => b.alive)?.id} />
+          {cfg.label === "Beginner" ? (
+            <ScoutStrip game={game} />
+          ) : (
+            <>
+              <OpponentsRail
+                bots={game.bots}
+                nextOpponent={game.bots.find((b) => b.alive)?.id}
+                onScout={setScoutId}
+              />
+              <ThreatBoard game={game} cfg={cfg} />
+            </>
+          )}
 
           <ActiveTraits hero={game.hero} cfg={cfg} />
 
@@ -234,9 +264,38 @@ export default function PlayPage() {
             roundKey={game.roundNumber}
             cfg={cfg}
             onResult={setCoachData}
+            log={
+              game.decisions.slice(-8).map((d) => ({
+                state: d.pre,
+                action_key: d.actionKey,
+                action_label: d.actionLabel,
+                stage_round: d.stageRound,
+              })) as unknown as ReviewDecisionInput[]
+            }
+            chatEnabled={chatEnabled}
           />
         </div>
       </div>
+
+      {game.pendingOffer && game.pendingOffer.length > 0 && (
+        <OfferModal
+          offer={game.pendingOffer}
+          onPick={(key) => setGame(applyOfferPick(game, key))}
+          hint={
+            cfg.label === "Beginner"
+              ? "New here? Economy picks (gold / interest) are the safe default — they help any board."
+              : undefined
+          }
+        />
+      )}
+
+      {scoutId &&
+        (() => {
+          const bot = game.bots.find((b) => b.id === scoutId);
+          return bot ? (
+            <ScoutDrawer bot={bot} hero={game.hero} cfg={cfg} onClose={() => setScoutId(null)} />
+          ) : null;
+        })()}
 
       {inspect && (
         <UnitInspector

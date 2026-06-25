@@ -24,6 +24,7 @@ from typing import List, Optional
 from ..config import (
     BENCH_STRENGTH,
     BOARD_STRENGTH_MULT,
+    FINAL_STAGE,
     ITEMS_STRENGTH,
     LOBBY_SIZE,
     MAX_LEVEL,
@@ -224,11 +225,17 @@ def compare_actions(
     state: StateInput,
     candidate_actions: Optional[List[ActionPlan]] = None,
     n_rollouts: int = 3000,
+    seed: Optional[int] = None,
 ) -> CompareOutput:
-    """Evaluate every candidate line and return them ranked best-first."""
+    """Evaluate every candidate line and return them ranked best-first.
+
+    ``seed`` overrides the state-derived seed — pass a fresh/random value for
+    true (non-reproducible) Monte Carlo sampling, or leave it None for the
+    deterministic, cacheable default.
+    """
     actions = candidate_actions or generate_candidate_actions(state)
     hero_in = to_hero_input(state)
-    seed = _seed_for(state)
+    seed = seed if seed is not None else _seed_for(state)
 
     raw: List[tuple[ActionPlan, dict]] = []
     for action in actions:
@@ -271,4 +278,98 @@ def compare_actions(
         summary=summary,
         n_rollouts=n_rollouts,
         seed=seed,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Future-stage projection
+# ---------------------------------------------------------------------------
+
+@dataclass
+class StageProjection:
+    stage: int
+    survival: float
+    exp_hp: float
+    strength_vs_lobby: float
+    exp_placement: float
+
+
+@dataclass
+class ProjectOutput:
+    line_key: str
+    line_label: str
+    trajectory: List[StageProjection]
+    watch_next: str
+    final_placement: float
+    top4_rate: float
+    seed: int
+
+
+def project_line(sim, start_stage: int) -> List[StageProjection]:
+    """Aggregate per-rollout stage snapshots into a forward trajectory."""
+    n = len(sim.placements) or 1
+    out: List[StageProjection] = []
+    for s in range(start_stage, FINAL_STAGE + 1):
+        hps: List[float] = []
+        svl: List[float] = []
+        finals: List[int] = []
+        for i, snaps in enumerate(sim.snaps):
+            snap = next((x for x in snaps if x.stage == s and x.alive), None)
+            if snap is not None:
+                hps.append(snap.hp)
+                svl.append(snap.hero_strength / max(1.0, snap.lobby_avg_strength))
+                finals.append(sim.placements[i])
+        survival = len(finals) / n
+        out.append(StageProjection(
+            stage=s,
+            survival=round(survival, 4),
+            exp_hp=round(sum(hps) / len(hps), 1) if hps else 0.0,
+            strength_vs_lobby=round(sum(svl) / len(svl), 3) if svl else 0.0,
+            # conditional expected final placement *given* you reach this stage alive
+            exp_placement=round(sum(finals) / len(finals), 2) if finals else 8.0,
+        ))
+    return out
+
+
+def _watch_next(traj: List[StageProjection]) -> str:
+    """One-line 'what to look for next stage' from the trajectory."""
+    for i in range(1, len(traj)):
+        prev, cur = traj[i - 1], traj[i]
+        if prev.survival - cur.survival > 0.08:
+            return (f"Stage {cur.stage}: the danger window — survival dips to "
+                    f"{round(cur.survival * 100)}% (~{round(cur.exp_hp)} HP). Have board strength ready.")
+        if cur.strength_vs_lobby and cur.strength_vs_lobby < 0.95:
+            return (f"Stage {cur.stage}: the lobby out-scales you "
+                    f"({cur.strength_vs_lobby:.2f}× parity) — you need a spike or you bleed.")
+    return "Trajectory is stable — keep executing the line and protect your HP into the late game."
+
+
+def project(
+    state: StateInput,
+    line_key: Optional[str] = None,
+    candidate_actions: Optional[List[ActionPlan]] = None,
+    n_rollouts: int = 2000,
+    seed: Optional[int] = None,
+) -> ProjectOutput:
+    """Project the chosen (or best) line forward through the remaining stages."""
+    actions = candidate_actions or generate_candidate_actions(state)
+    hero_in = to_hero_input(state)
+    sd = seed if seed is not None else _seed_for(state)
+
+    if line_key:
+        plan = next((a for a in actions if a.key == line_key), actions[0])
+    else:
+        out = compare_actions(state, actions, n_rollouts=min(1500, n_rollouts), seed=sd)
+        plan = next((a for a in actions if a.key == out.best_key), actions[0])
+
+    sim = simulate_action(hero_in, plan, n_rollouts, sd, collect_snaps=True)
+    traj = project_line(sim, state.stage_number())
+    placements = sim.placements
+    final_place = sum(placements) / len(placements) if placements else 8.0
+    top4 = sum(1 for p in placements if p <= 4) / len(placements) if placements else 0.0
+
+    return ProjectOutput(
+        line_key=plan.key, line_label=plan.label, trajectory=traj,
+        watch_next=_watch_next(traj), final_placement=round(final_place, 2),
+        top4_rate=round(top4, 4), seed=sd,
     )

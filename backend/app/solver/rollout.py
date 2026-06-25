@@ -68,9 +68,21 @@ class ActionPlan:
 
 
 @dataclass
+class StageSnap:
+    """Hero state captured at a stage boundary within one rollout."""
+    stage: int
+    hp: float
+    hero_strength: float
+    lobby_avg_strength: float
+    alive: bool
+    placement_so_far: int      # 0 while still alive, else the final placement
+
+
+@dataclass
 class SimResult:
     placements: List[int] = field(default_factory=list)
     first_fight_wins: List[bool] = field(default_factory=list)
+    snaps: List[List[StageSnap]] = field(default_factory=list)  # one list per rollout
 
 
 # ---------------------------------------------------------------------------
@@ -226,7 +238,7 @@ def _fight(a: _Player, b: _Player, stage: int, rng: random.Random) -> _Player:
 # A single rollout
 # ---------------------------------------------------------------------------
 
-def _one_rollout(hero_in: HeroInput, plan: ActionPlan, rng: random.Random):
+def _one_rollout(hero_in: HeroInput, plan: ActionPlan, rng: random.Random, collect_snaps: bool = False):
     tempo_mult = LOBBY_TEMPO_MULT.get(hero_in.lobby_tempo, 1.0)
     players = _make_lobby(hero_in, rng)
     hero = players[0]
@@ -235,6 +247,20 @@ def _one_rollout(hero_in: HeroInput, plan: ActionPlan, rng: random.Random):
     round_in_stage = 0
     first_fight_win: Optional[bool] = None
     horizon = 70
+    snaps: List[StageSnap] = []
+
+    def _snap(st: int) -> None:
+        if not collect_snaps:
+            return
+        opps = [p for p in players if p.alive and not p.is_hero]
+        lobby_avg = (sum(p.strength for p in opps) / len(opps)) if opps else stage_baseline_strength(st)
+        snaps.append(StageSnap(
+            stage=st, hp=hero.hp, hero_strength=hero.strength,
+            lobby_avg_strength=lobby_avg, alive=hero.alive,
+            placement_so_far=0 if hero.alive else hero.placement,
+        ))
+
+    _snap(stage)  # entering the current stage
 
     for _step in range(horizon):
         alive = [p for p in players if p.alive]
@@ -281,6 +307,7 @@ def _one_rollout(hero_in: HeroInput, plan: ActionPlan, rng: random.Random):
         if round_in_stage >= ROUNDS_PER_STAGE:
             round_in_stage = 0
             stage = min(FINAL_STAGE, stage + 1)
+            _snap(stage)  # entering a new stage
 
     # resolve survivors
     survivors = [p for p in players if p.alive]
@@ -291,19 +318,25 @@ def _one_rollout(hero_in: HeroInput, plan: ActionPlan, rng: random.Random):
     if hero.placement == 0:
         hero.placement = 1
 
-    return hero.placement, bool(first_fight_win) if first_fight_win is not None else False
+    first = bool(first_fight_win) if first_fight_win is not None else False
+    return hero.placement, first, snaps
 
 
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 
-def simulate_action(hero_in: HeroInput, plan: ActionPlan, n_rollouts: int, seed: int) -> SimResult:
+def simulate_action(
+    hero_in: HeroInput, plan: ActionPlan, n_rollouts: int, seed: int,
+    collect_snaps: bool = False,
+) -> SimResult:
     """Run ``n_rollouts`` Monte Carlo games with the hero following ``plan``."""
     rng = random.Random(seed)
     result = SimResult()
     for _ in range(n_rollouts):
-        placement, first_win = _one_rollout(hero_in, plan, rng)
+        placement, first_win, snaps = _one_rollout(hero_in, plan, rng, collect_snaps)
         result.placements.append(placement)
         result.first_fight_wins.append(first_win)
+        if collect_snaps:
+            result.snaps.append(snaps)
     return result

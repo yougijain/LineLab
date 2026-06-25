@@ -31,13 +31,24 @@ import {
   traitBonus,
   unitsOfTier,
 } from "./data";
-import { botDiff } from "./tiers";
-import { heroBoardStrength } from "./strength";
+import { BOT_IDENTITIES, BOT_IDENTITY_BY_KEY, botDiff } from "./tiers";
+import { fieldedTraitCounts, heroBoardStrength } from "./strength";
+import { defaultConditions, offerThree, pickModifier, rollStageEvent, traitBoostBonus } from "./conditions";
 import { toSolverState } from "./solverMap";
 import type { Bot, FieldUnit, Game, Hero, Settings, Star } from "./types";
 
 let UID = 0;
 const newUid = () => `u${++UID}`;
+
+/** A high-entropy, non-reproducible seed for a fresh run (crypto when available). */
+export function randomSeed(): number {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const a = new Uint32Array(1);
+    crypto.getRandomValues(a);
+    return a[0] & 0x7fffffff;
+  }
+  return Math.floor(Math.random() * 2 ** 31);
+}
 const COPIES_FOR_STAR: Record<number, number> = { 1: 1, 2: 3, 3: 9 };
 const BOT_NAMES = ["Vex", "Koro", "Nyx", "Pyre", "Sable", "Drift", "Onyx", "Quill"];
 
@@ -132,25 +143,70 @@ export function newGame(settings: Settings): Game {
     planPre: null,
     planStartLevel: hero.level,
     planRerolls: 0,
+    conditions: defaultConditions(),
+    pendingOffer: null,
+    freeRollsLeft: 0,
   };
 
   const baseline = stageBaselineStrength(startStage);
   for (let i = 0; i < 7; i++) {
     const idx = Math.floor(rand(g) * names.length);
     const name = names.splice(idx, 1)[0] ?? `Bot${i}`;
-    g.bots.push({
+    const identity = BOT_IDENTITIES[Math.floor(rand(g) * BOT_IDENTITIES.length)];
+    const bot: Bot = {
       id: `b${i}`,
       name,
       hp: 100,
       strength: Math.max(5, baseline * diff.tempoFactor + gauss(g, 0, 8)),
       alive: true,
       placement: 0,
-    });
+      streak: 0,
+      board: {
+        units: [], level: 2, traits: {}, itemCount: 0,
+        identityKey: identity.key, identityLabel: identity.label, buildLine: identity.buildLine,
+      },
+    };
+    syncBotBoard(g, bot);
+    g.bots.push(bot);
   }
 
   rollShop(g);
+  g.pendingOffer = offerThree(g); // first modifier pick at game start
   g.planPre = toSolverState(g);
   return g;
+}
+
+/** Rebuild a bot's visible board to reflect its identity + current stage power.
+ *  This is a *rendering* of the bot's abstract strength for scouting, kept cheap
+ *  (O(units) per bot per round). */
+function syncBotBoard(g: Game, bot: Bot): void {
+  const diff = botDiff(g.settings.botDiff);
+  const id = BOT_IDENTITY_BY_KEY[bot.board.identityKey] ?? BOT_IDENTITIES[0];
+  const level = Math.max(2, Math.min(9, 2 + Math.floor(g.stage * diff.levelPace)));
+  const n = Math.max(1, Math.min(level, 1 + Math.round(g.stage * diff.boardSizePace)));
+  const pool = ROSTER.filter((u) => u.traits.some((t) => id.traits.includes(t)));
+  const used = new Set<string>();
+  const units: FieldUnit[] = [];
+  for (let i = 0; i < n; i++) {
+    const tier = pickTier(g, level);
+    let cands = pool.filter((u) => u.tier === tier && !used.has(u.key));
+    if (!cands.length) cands = pool.filter((u) => !used.has(u.key));
+    if (!cands.length) cands = ROSTER.filter((u) => !used.has(u.key));
+    if (!cands.length) break;
+    const def = cands[Math.floor(rand(g) * cands.length)];
+    used.add(def.key);
+    const star: Star = rand(g) < diff.starBias ? (rand(g) < diff.starBias * 0.4 ? 3 : 2) : 1;
+    units.push({
+      uid: newUid(), key: def.key, name: def.name, tier: def.tier, star,
+      traits: def.traits, role: def.role, items: [], onBoard: true, cell: i,
+    });
+  }
+  bot.board = {
+    units, level,
+    traits: fieldedTraitCounts(units),
+    itemCount: Math.max(0, Math.round((g.stage - 1) * diff.itemPace)),
+    identityKey: id.key, identityLabel: id.label, buildLine: id.buildLine,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -245,8 +301,14 @@ export function sellUnit(game: Game, uid: string): Game {
 
 export function refreshShop(game: Game): Game {
   const g = clone(game);
-  if (g.phase !== "plan" || g.hero.gold < REFRESH_COST) return game;
-  g.hero.gold -= REFRESH_COST;
+  if (g.phase !== "plan") return game;
+  const cost = g.conditions.refreshCost;
+  if (g.freeRollsLeft > 0) {
+    g.freeRollsLeft -= 1; // Free Scout — no charge
+  } else {
+    if (g.hero.gold < cost) return game;
+    g.hero.gold -= cost;
+  }
   g.planRerolls += 1;
   rollShop(g);
   return g;
@@ -265,8 +327,9 @@ function applyLevelUps(g: Game): boolean {
 
 export function buyXP(game: Game): Game {
   const g = clone(game);
-  if (g.phase !== "plan" || g.hero.gold < XP_BUY_COST || g.hero.level >= MAX_LEVEL) return game;
-  g.hero.gold -= XP_BUY_COST;
+  const cost = g.conditions.xpCost;
+  if (g.phase !== "plan" || g.hero.gold < cost || g.hero.level >= MAX_LEVEL) return game;
+  g.hero.gold -= cost;
   g.hero.xp += XP_BUY_AMOUNT;
   if (applyLevelUps(g)) rollShop(g); // leveling refreshes the shop
   return g;
@@ -323,6 +386,8 @@ function botStep(g: Game, bot: Bot): void {
   const base =
     (stageBaselineStrength(g.stage + 1) - stageBaselineStrength(g.stage)) / ROUNDS_PER_STAGE;
   let grow = base * diff.econOpt * diff.luckMult;
+  // Higher difficulties get hidden modifiers so the lobby stays fair vs a buffed hero.
+  if (diff.botModifiers) grow *= 1 + 0.04 * diff.botModifiers;
   if (rand(g) < diff.mistakeRate) grow *= 0.3;
   bot.strength += gauss(g, grow, grow * 0.4);
   if (rand(g) < diff.spikeChance) bot.strength += Math.max(0, gauss(g, 6, 3));
@@ -373,11 +438,17 @@ export function lockAndResolve(game: Game): Game {
 
   captureDecision(g);
 
-  // Bots scale up for the round.
-  for (const b of g.bots) if (b.alive) botStep(g, b);
+  // Bots scale up for the round, and refresh their visible (scoutable) board.
+  for (const b of g.bots)
+    if (b.alive) {
+      botStep(g, b);
+      syncBotBoard(g, b);
+    }
 
-  // Build the lobby and pair it.
-  const heroStr = heroBoardStrength(g.hero);
+  // Build the lobby and pair it. Conditions buff the hero's combat strength.
+  const heroStr =
+    heroBoardStrength(g.hero) * g.conditions.strengthMult +
+    traitBoostBonus(fieldedTraitCounts(g.hero.board), g.conditions);
   const lobby: Combatant[] = [{ isHero: true, strength: heroStr }];
   for (const b of g.bots) if (b.alive) lobby.push({ isHero: false, botId: b.id, strength: b.strength });
 
@@ -403,7 +474,7 @@ export function lockAndResolve(game: Game): Game {
 
     const applyLoss = (c: Combatant) => {
       if (c.isHero) {
-        g.hero.hp -= loss;
+        g.hero.hp -= loss * g.conditions.lossDmgMult;
       } else {
         const bot = g.bots.find((x) => x.id === c.botId)!;
         bot.hp -= loss;
@@ -411,6 +482,15 @@ export function lockAndResolve(game: Game): Game {
       }
     };
     applyLoss(loser);
+
+    // update bot streaks for the scout display
+    const setBotStreak = (c: Combatant, won: boolean) => {
+      if (c.isHero || !c.botId) return;
+      const bot = g.bots.find((x) => x.id === c.botId);
+      if (bot) bot.streak = won ? (bot.streak >= 0 ? bot.streak + 1 : 1) : (bot.streak <= 0 ? bot.streak - 1 : -1);
+    };
+    setBotStreak(winner, true);
+    setBotStreak(loser, false);
 
     if (a.isHero || b.isHero) {
       const opp = a.isHero ? b : a;
@@ -463,18 +543,23 @@ export function lockAndResolve(game: Game): Game {
     g.lastRound = entry;
   }
 
-  // Hero income for next round (only if still alive).
+  // Hero income for next round (only if still alive). Conditions adjust income.
+  const c = g.conditions;
   if (g.hero.alive) {
-    g.hero.gold += BASE_INCOME + interest(g.hero.gold) + streakBonus(g.hero.streak) + (heroWon ? WIN_GOLD : 0);
+    g.hero.gold +=
+      c.baseIncome + interest(g.hero.gold, c.interestCap) + streakBonus(g.hero.streak) +
+      (heroWon ? WIN_GOLD : c.lossGold);
     g.hero.xp += XP_PASSIVE;
     if (applyLevelUps(g)) rollShop(g);
   }
 
   // Advance the clock.
   g.roundInStage += 1;
+  let newStage = false;
   if (g.roundInStage >= ROUNDS_PER_STAGE) {
     g.roundInStage = 0;
     g.stage = Math.min(FINAL_STAGE, g.stage + 1);
+    newStage = true;
   }
   g.roundNumber += 1;
 
@@ -491,8 +576,23 @@ export function lockAndResolve(game: Game): Game {
     g.phase = "plan";
     g.planStartLevel = g.hero.level;
     g.planRerolls = 0;
+    if (newStage) {
+      rollStageEvent(g); // new per-stage lobby event
+      // offer a modifier pick at the start of stages 3 and 4
+      if ((g.stage === 3 || g.stage === 4) && g.conditions.modifiers.length < g.stage - 1) {
+        g.pendingOffer = offerThree(g);
+      }
+    }
+    g.freeRollsLeft = g.conditions.freeRolls; // reset Free Scout for the new plan phase
     g.planPre = toSolverState(g);
   }
+  return g;
+}
+
+/** Apply a chosen modifier (used by the offer modal). Returns a new Game. */
+export function applyOfferPick(game: Game, key: string): Game {
+  const g = clone(game);
+  pickModifier(g, key); // mutates conditions/hero/pendingOffer/freeRollsLeft
   return g;
 }
 

@@ -4,9 +4,9 @@ import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "LineLab — Auto-battler macro solver & TFT study",
+  title: "LineLab — Learn Teamfight Tactics fundamentals",
   description:
-    "LineLab Solver is an original Monte Carlo decision-theory engine for auto-battler macro decisions: save vs roll vs level, stabilize vs cap, top-4 vs first.",
+    "Learn the handful of durable TFT decisions that get you to top 4 — economy, leveling, rolling, items, positioning — then drill them against a live coach. Independent; uses no Riot assets or data.",
 };
 
 export default function RootLayout({

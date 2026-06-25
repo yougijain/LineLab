@@ -13,8 +13,8 @@ export const INTEREST_PER = 10;
 export const INTEREST_CAP = 5;
 export const WIN_GOLD = 1;
 
-export function interest(gold: number): number {
-  return Math.min(INTEREST_CAP, Math.floor(Math.max(0, gold) / INTEREST_PER));
+export function interest(gold: number, cap: number = INTEREST_CAP): number {
+  return Math.min(cap, Math.floor(Math.max(0, gold) / INTEREST_PER));
 }
 
 export function streakBonus(streakLen: number): number {
@@ -25,8 +25,8 @@ export function streakBonus(streakLen: number): number {
   return 0;
 }
 
-export function goldToNextInterest(gold: number): number {
-  if (interest(gold) >= INTEREST_CAP) return 0;
+export function goldToNextInterest(gold: number, cap: number = INTEREST_CAP): number {
+  if (interest(gold, cap) >= cap) return 0;
   return (Math.floor(gold / INTEREST_PER) + 1) * INTEREST_PER - gold;
 }
 

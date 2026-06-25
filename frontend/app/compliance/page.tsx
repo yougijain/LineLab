@@ -16,41 +16,40 @@ export default function CompliancePage() {
         Compliance overview
       </h1>
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-300">
-        LineLab is an independent educational website with two clearly separated
-        products. This page summarizes how each is designed to respect game
-        publishers&rsquo; intellectual property and developer policies.
+        LineLab is an independent educational tool that teaches Teamfight Tactics
+        fundamentals. This page summarizes how it is designed to respect Riot
+        Games&rsquo; intellectual property and developer policies.
       </p>
 
       <div className="mt-8 grid gap-5 md:grid-cols-2">
         <div className="card p-5">
-          <h2 className="font-semibold text-white">LineLab Solver — what it is</h2>
+          <h2 className="font-semibold text-white">What LineLab is</h2>
           <p className="mt-2 text-sm text-slate-400">
-            An original auto-battler decision-theory engine over a fictional game
-            model.
+            A fundamentals trainer built on an original simulation model, using
+            TFT&rsquo;s own vocabulary to teach durable, patch-agnostic concepts.
           </p>
           <ul className="mt-4 space-y-2">
-            <Row ok>Original, invented units, traits and stat modules</Row>
-            <Row ok>Generic tiered shop odds and economy — no copied data tables</Row>
-            <Row ok>Abstract board-strength combat, not a battle simulator</Row>
-            <Row ok>Synthetic Monte Carlo data only</Row>
-            <Row ok={false}>No Riot / TFT names, assets, icons or IP</Row>
-            <Row ok={false}>No live-client access, overlay or automation</Row>
+            <Row ok>Teaches transferable fundamentals — economy, leveling, rolling, positioning</Row>
+            <Row ok>Original Monte Carlo model powers the Arena and Solver</Row>
+            <Row ok>Refers to TFT and its mechanics nominally, for teaching</Row>
+            <Row ok={false}>No Riot artwork, icons, champion portraits, or other assets</Row>
+            <Row ok={false}>No champion / item / trait stats, or patch data tables</Row>
+            <Row ok={false}>No live-client access, overlay, or automation</Row>
           </ul>
         </div>
 
         <div className="card p-5">
-          <h2 className="font-semibold text-white">LineLab TFT Study — what it will be</h2>
+          <h2 className="font-semibold text-white">What LineLab never does</h2>
           <p className="mt-2 text-sm text-slate-400">
-            A static study companion plus self player post-game review, after
-            developer registration and clearance.
+            We stay on the educational, pre-game side of the line publishers draw.
           </p>
           <ul className="mt-4 space-y-2">
-            <Row ok>Static patch guides, comps, flashcards (pre-game best practices)</Row>
-            <Row ok>Approved assets (Data Dragon / press kit) only after clearance</Row>
-            <Row ok>Self player match-history &amp; aggregate stats</Row>
-            <Row ok={false}>No live overlay that adapts to in-game state</Row>
-            <Row ok={false}>No opponent scouting or next-play prediction</Row>
-            <Row ok={false}>No &ldquo;do this now&rdquo; in-game prescriptions</Row>
+            <Row ok={false}>No live overlay that reads or reacts to your real game</Row>
+            <Row ok={false}>No scouting of real opponents&rsquo; boards</Row>
+            <Row ok={false}>No &ldquo;do this now&rdquo; prescriptions inside the real client</Row>
+            <Row ok={false}>No memory reading, packet sniffing, or automation</Row>
+            <Row ok={false}>No reproduction of Riot&rsquo;s art, data, or branding</Row>
+            <Row ok>Everything runs on synthetic data and your inputs only</Row>
           </ul>
         </div>
       </div>
@@ -61,16 +60,33 @@ export default function CompliancePage() {
         </h2>
         <div className="card mt-3 p-5 text-sm leading-relaxed text-slate-300">
           <p>
-            Publisher policy generally encourages tools that help players improve
-            over time — especially pre-game best practices and post-game analysis —
-            while disallowing dynamic real-time information, opponent scouting, and
-            apps that dictate in-game decisions. LineLab is built around that line:
+            Riot&rsquo;s policies — like most publishers&rsquo; — encourage tools
+            that help players improve over time through pre-game learning and
+            analysis of their own data, while disallowing real-time in-client
+            information, opponent scouting, and apps that play the game for you.
+            LineLab is built squarely on the safe side of that line:
           </p>
           <ul className="mt-3 space-y-1.5">
-            <li className="flex gap-2"><span className="text-brand">›</span> The Solver teaches transferable concepts on an original model, so it never touches publisher IP.</li>
-            <li className="flex gap-2"><span className="text-brand">›</span> The Study product stays static and pre-game, or strictly post-game on the player&rsquo;s own data.</li>
-            <li className="flex gap-2"><span className="text-brand">›</span> The two products are separated in code, UI and data so review is unambiguous.</li>
+            <li className="flex gap-2"><span className="text-brand">›</span> It teaches concepts and runs an original simulation — it is not a TFT clone and ships no Riot assets or data.</li>
+            <li className="flex gap-2"><span className="text-brand">›</span> It never connects to the live game, reads your screen, or reacts to a real match in progress.</li>
+            <li className="flex gap-2"><span className="text-brand">›</span> The practice Arena is a self-contained game; the &ldquo;opponents&rdquo; are simulated, not real players.</li>
           </ul>
+        </div>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+          If we ever add personalized data
+        </h2>
+        <div className="card mt-3 p-5 text-sm leading-relaxed text-slate-300">
+          <p>
+            Features like your own post-game match history would use Riot&rsquo;s
+            official developer APIs and approved assets (Data Dragon) only after
+            registering a product on the Riot Developer Portal and following
+            Riot&rsquo;s Legal Jibber Jabber. Until then, LineLab stays
+            patch-agnostic and asset-free — nothing here depends on Riot&rsquo;s
+            data or approval to run.
+          </p>
         </div>
       </section>
 
@@ -80,8 +96,8 @@ export default function CompliancePage() {
         </h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {[
-            "Live TFT solver", "Live board reader", "TFT clone simulator",
-            "Opponent scouting", "Client automation", "Memory reading",
+            "Live game overlay", "Real-board reader", "TFT clone simulator",
+            "Real-opponent scouting", "Client automation", "Memory reading",
             "In-game “buy/roll/level now” assistant",
           ].map((t) => (
             <span key={t} className="chip border-red-500/30 text-red-300">
@@ -91,9 +107,12 @@ export default function CompliancePage() {
         </div>
       </section>
 
-      <p className="mt-10 text-xs text-slate-500">
+      <p className="mt-10 max-w-3xl text-xs leading-relaxed text-slate-500">
         This overview is a plain-English summary of design intent, not legal
-        advice. LineLab is not affiliated with or endorsed by any game publisher.
+        advice. LineLab is not affiliated with, endorsed by, sponsored by, or
+        specifically approved by Riot Games. Teamfight Tactics and TFT are
+        trademarks of Riot Games, Inc., referenced here nominatively for
+        identification and educational purposes only.
       </p>
     </div>
   );

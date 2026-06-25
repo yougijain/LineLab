@@ -18,19 +18,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import review as review_mod
 from . import scenarios
 from .cache import cache
+from .chat import chat_enabled
+from .chat import router as chat_router
 from .models import (
     Branch,
     CompareRequest,
     CompareResponse,
     GameState,
     LineResultModel,
+    ProjectRequest,
+    ProjectResponse,
     ReviewRequest,
     ReviewResponse,
     SaveScenarioRequest,
     ScenarioModel,
+    StageProjectionModel,
 )
 from .solver import compare_actions, generate_candidate_actions
-from .solver.evaluator import StateInput
+from .solver.evaluator import StateInput, project
 from .solver.rollout import ActionPlan
 
 app = FastAPI(
@@ -72,6 +77,9 @@ def _state_input(state: GameState) -> StateInput:
     )
 
 
+app.include_router(chat_router)
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {
@@ -79,6 +87,7 @@ def health() -> dict:
         "service": "linelab-solver",
         "version": app.version,
         "scenario_store": "supabase" if scenarios.using_db() else "json",
+        "chat_coach": chat_enabled(),
     }
 
 
@@ -123,7 +132,7 @@ def compare(req: CompareRequest) -> CompareResponse:
         ]
 
     start = time.perf_counter()
-    out = compare_actions(state_in, custom_actions, n_rollouts=req.n_rollouts)
+    out = compare_actions(state_in, custom_actions, n_rollouts=req.n_rollouts, seed=req.seed)
     elapsed = (time.perf_counter() - start) * 1000.0
 
     results = [
@@ -156,6 +165,40 @@ def compare(req: CompareRequest) -> CompareResponse:
 def review(req: ReviewRequest) -> ReviewResponse:
     """Grade a played game's decisions against the solver (Line Review)."""
     return review_mod.review_game(req.decisions, req.n_rollouts)
+
+
+@app.post("/api/project", response_model=ProjectResponse)
+def project_endpoint(req: ProjectRequest) -> ProjectResponse:
+    """Project the recommended (or chosen) line forward through future stages."""
+    cache_key = cache.key({"project": req.model_dump()})
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached.model_copy(update={"cached": True})
+
+    state_in = _state_input(req.state)
+    custom_actions = None
+    if req.actions:
+        custom_actions = [
+            ActionPlan(key=a.key, label=a.label,
+                       level_target=a.level_target, roll_to_gold=a.roll_to_gold)
+            for a in req.actions
+        ]
+    out = project(state_in, line_key=req.line_key, candidate_actions=custom_actions,
+                  n_rollouts=req.n_rollouts)
+    response = ProjectResponse(
+        state=req.state,
+        line_key=out.line_key,
+        line_label=out.line_label,
+        trajectory=[StageProjectionModel(stage=s.stage, survival=s.survival, exp_hp=s.exp_hp,
+                                          strength_vs_lobby=s.strength_vs_lobby,
+                                          exp_placement=s.exp_placement) for s in out.trajectory],
+        watch_next=out.watch_next,
+        final_placement=out.final_placement,
+        top4_rate=out.top4_rate,
+        cached=False,
+    )
+    cache.set(cache_key, response)
+    return response
 
 
 @app.get("/api/actions", response_model=List[dict])
