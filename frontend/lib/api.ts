@@ -1,6 +1,12 @@
 // Thin client for the LineLab Solver API, with a graceful offline fallback.
 
-import type { CompareResponse, GameState, Scenario } from "./types";
+import type {
+  CompareResponse,
+  GameState,
+  ReviewDecisionInput,
+  ReviewResponse,
+  Scenario,
+} from "./types";
 import { SAMPLE_RESULT } from "./sampleResult";
 
 export const API_URL =
@@ -39,6 +45,20 @@ export async function compare(
   } catch (err) {
     // Fall back to the embedded sample so the UI stays meaningful offline.
     return { data: { ...SAMPLE_RESULT, state }, offline: true };
+  }
+}
+
+export async function reviewGame(
+  decisions: ReviewDecisionInput[],
+  nRollouts = 700,
+): Promise<ReviewResponse | null> {
+  try {
+    return await req<ReviewResponse>("/api/review", {
+      method: "POST",
+      body: JSON.stringify({ decisions, n_rollouts: nRollouts }),
+    });
+  } catch {
+    return null;
   }
 }
 
