@@ -15,6 +15,7 @@ from typing import List
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import review as review_mod
 from . import scenarios
 from .cache import cache
 from .models import (
@@ -23,6 +24,8 @@ from .models import (
     CompareResponse,
     GameState,
     LineResultModel,
+    ReviewRequest,
+    ReviewResponse,
     SaveScenarioRequest,
     ScenarioModel,
 )
@@ -147,6 +150,12 @@ def compare(req: CompareRequest) -> CompareResponse:
     )
     cache.set(cache_key, response)
     return response
+
+
+@app.post("/api/review", response_model=ReviewResponse)
+def review(req: ReviewRequest) -> ReviewResponse:
+    """Grade a played game's decisions against the solver (Line Review)."""
+    return review_mod.review_game(req.decisions, req.n_rollouts)
 
 
 @app.get("/api/actions", response_model=List[dict])

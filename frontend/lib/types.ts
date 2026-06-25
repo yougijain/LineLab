@@ -57,6 +57,41 @@ export interface Scenario {
   builtin: boolean;
 }
 
+// ---- Game review (Line Review) ----
+
+export interface ReviewDecisionInput {
+  state: GameState;
+  action_key: string;
+  action_label: string;
+  stage_round: string;
+}
+
+export interface MoveGrade {
+  index: number;
+  stage_round: string;
+  played_key: string;
+  played_label: string;
+  best_key: string;
+  best_label: string;
+  gap_ev: number;
+  gap_place: number;
+  loss: number;
+  quality: number;
+  label_name: string;
+  label_meaning: string;
+  label_color: string;
+  is_trap: boolean;
+  is_forced: boolean;
+}
+
+export interface ReviewResponse {
+  grades: MoveGrade[];
+  accuracy: number;
+  band: string;
+  main_leak: string;
+  study_index: number;
+}
+
 export const DEFAULT_STATE: GameState = {
   stage: "midgame",
   hp: 58,

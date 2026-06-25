@@ -76,6 +76,45 @@ class CompareResponse(BaseModel):
     cached: bool
 
 
+class ReviewDecision(BaseModel):
+    """One captured decision point from a played game."""
+    state: GameState
+    action_key: str
+    action_label: str = ""
+    stage_round: str = ""          # e.g. "4-2" for display
+
+
+class ReviewRequest(BaseModel):
+    decisions: List[ReviewDecision]
+    n_rollouts: int = Field(700, ge=200, le=6000)
+
+
+class MoveGrade(BaseModel):
+    index: int
+    stage_round: str
+    played_key: str
+    played_label: str
+    best_key: str
+    best_label: str
+    gap_ev: float
+    gap_place: float
+    loss: float
+    quality: int                   # 0..100
+    label_name: str
+    label_meaning: str
+    label_color: str
+    is_trap: bool
+    is_forced: bool
+
+
+class ReviewResponse(BaseModel):
+    grades: List[MoveGrade]
+    accuracy: int                  # 0..100
+    band: str
+    main_leak: str
+    study_index: int               # index of the worst decision (for "drill this")
+
+
 class ScenarioModel(BaseModel):
     id: str
     name: str
