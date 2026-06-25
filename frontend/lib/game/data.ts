@@ -198,3 +198,29 @@ export function traitWants(key: string): string {
 export function itemBestOn(key: string): string {
   return ITEM_BEST_ON[key] ?? "Any flex unit.";
 }
+
+// A simplified "when is this trait good" tag — no bonus numbers, just whether a
+// trait is a strong early commit, a scaling payoff, or a late-game investment.
+export type TraitTempo = "early" | "scaling" | "late";
+
+export const TRAIT_TEMPO: Record<string, TraitTempo> = {
+  pyre: "early", // cheap to turn on, strong damage now
+  storm: "early", // 2-3 cost spike, good early tempo
+  warden: "early", // cheap frontline to stop the bleed
+  forge: "scaling", // tankier as you star up
+  mystic: "scaling", // casters scale with stars/items
+  skirmisher: "scaling", // dive gets stickier with depth
+  tide: "late", // rewards a wide, invested board
+  drift: "late", // only worth it at 3+, late origin
+  marksman: "late", // carries pay off once items land
+};
+
+export const TEMPO_META: Record<TraitTempo, { label: string; color: string; hint: string }> = {
+  early: { label: "Early", color: "#34d399", hint: "Strong now — good to commit early." },
+  scaling: { label: "Scales", color: "#fbbf24", hint: "Pays off as you star up and add items." },
+  late: { label: "Late", color: "#818cf8", hint: "Rewards a wide, late-game board." },
+};
+
+export function traitTempo(key: string): TraitTempo {
+  return TRAIT_TEMPO[key] ?? "scaling";
+}

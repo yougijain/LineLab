@@ -25,7 +25,7 @@ import Bench from "@/components/play/Bench";
 import Shop from "@/components/play/Shop";
 import CoachPanel from "@/components/play/CoachPanel";
 import Review from "@/components/play/Review";
-import TraitPanel from "@/components/play/TraitPanel";
+import ActiveTraits from "@/components/play/ActiveTraits";
 import NextStep from "@/components/play/NextStep";
 import UnitInspector from "@/components/play/UnitInspector";
 import History from "@/components/play/History";
@@ -170,7 +170,7 @@ export default function PlayPage() {
 
           <OpponentsRail bots={game.bots} nextOpponent={game.bots.find((b) => b.alive)?.id} />
 
-          {cfg.showTraitDetail && <TraitPanel hero={game.hero} cfg={cfg} />}
+          <ActiveTraits hero={game.hero} cfg={cfg} />
 
           <div className="relative">
             {busy && <div className="animate-vsflash pointer-events-none absolute inset-0 z-10 rounded-xl bg-gradient-to-br from-brand/40 to-accent/40" />}
