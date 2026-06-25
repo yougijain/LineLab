@@ -9,12 +9,16 @@ full database (Postgres/Supabase is the production target — see README).
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import uuid
 from pathlib import Path
 from typing import Dict, List
 
+from . import db
 from .models import GameState, ScenarioModel
+
+logger = logging.getLogger("linelab.scenarios")
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 SAVED_PATH = DATA_DIR / "scenarios.json"
@@ -98,20 +102,34 @@ def _write_saved(items: List[ScenarioModel]) -> None:
     )
 
 
+def using_db() -> bool:
+    """True when the Supabase Postgres store is active (else JSON fallback)."""
+    return db.is_enabled()
+
+
 def list_scenarios() -> List[ScenarioModel]:
+    if db.is_enabled():
+        try:
+            db.ensure_ready(BUILTIN)
+            return db.list_scenarios()
+        except Exception:  # pragma: no cover - keep the UI alive on DB outage
+            logger.warning("Supabase store unavailable; using JSON fallback", exc_info=True)
     with _lock:
         return BUILTIN + _load_saved()
 
 
 def save_scenario(name: str, description: str, state: GameState) -> ScenarioModel:
+    scenario_id = str(uuid.uuid4())[:8]
+    if db.is_enabled():
+        try:
+            db.ensure_ready(BUILTIN)
+            return db.save_scenario(scenario_id, name, description, state)
+        except Exception:  # pragma: no cover
+            logger.warning("Supabase save failed; using JSON fallback", exc_info=True)
     with _lock:
         saved = _load_saved()
         scenario = ScenarioModel(
-            id=str(uuid.uuid4())[:8],
-            name=name,
-            description=description,
-            state=state,
-            builtin=False,
+            id=scenario_id, name=name, description=description, state=state, builtin=False,
         )
         saved.append(scenario)
         _write_saved(saved)
@@ -119,6 +137,12 @@ def save_scenario(name: str, description: str, state: GameState) -> ScenarioMode
 
 
 def delete_scenario(scenario_id: str) -> bool:
+    if db.is_enabled():
+        try:
+            db.ensure_ready(BUILTIN)
+            return db.delete_scenario(scenario_id)
+        except Exception:  # pragma: no cover
+            logger.warning("Supabase delete failed; using JSON fallback", exc_info=True)
     with _lock:
         saved = _load_saved()
         remaining = [s for s in saved if s.id != scenario_id]

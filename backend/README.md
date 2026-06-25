@@ -34,9 +34,27 @@ py -3.13 -m venv .venv
 | `estimate_upgrade_probability(level, gold, tiers)` | `shop.py` | upgrade luck from rolling |
 | `generate_explanation(...)` | `explanation.py` | per-line + summary rationale |
 
+## Scenario store (Supabase Postgres)
+
+The scenario store auto-selects its backend:
+
+- **Supabase Postgres** when `SUPABASE_DB_URL` is set — recommended for any real
+  deployment. Use the **Session pooler** connection string from the dashboard's
+  *Connect* dialog (IPv4, port 5432). The backend connects with `psycopg` 3 over
+  a small pool, self-creates the `scenarios` table, and seeds the built-in spots.
+- **Local JSON** (`data/scenarios.json`) when it is unset — zero-config fallback
+  for local dev and tests.
+
+```bash
+# backend/.env
+SUPABASE_DB_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+
+.venv/Scripts/python scripts/check_db.py   # verify the live round-trip
+```
+
+`GET /api/health` reports which store is active (`"scenario_store": "supabase" | "json"`).
+
 ## Notes
 
 - Results are deterministic per state (seed derived from the state) → cacheable
   and reproducible. The in-memory LRU cache (`cache.py`) returns repeats instantly.
-- The scenario store (`scenarios.py`) persists user scenarios to
-  `data/scenarios.json`. Swap for Postgres/Supabase in production.
