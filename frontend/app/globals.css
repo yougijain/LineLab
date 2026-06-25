@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-ink-950 text-slate-200 antialiased;
+  background-image:
+    radial-gradient(900px 500px at 12% -10%, rgba(52, 211, 153, 0.08), transparent 60%),
+    radial-gradient(800px 500px at 100% 0%, rgba(129, 140, 248, 0.08), transparent 55%);
+  background-attachment: fixed;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-ink-700 bg-ink-900/70 backdrop-blur;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm
+           font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-ink-950 hover:bg-emerald-300;
+  }
+  .btn-ghost {
+    @apply btn border border-ink-600 text-slate-200 hover:bg-ink-800;
+  }
+  .chip {
+    @apply rounded-full border border-ink-600 px-2.5 py-0.5 text-xs text-slate-300;
+  }
+  .seg {
+    @apply rounded-md px-3 py-1.5 text-sm font-medium transition-colors;
+  }
+  .seg-on {
+    @apply bg-brand text-ink-950;
+  }
+  .seg-off {
+    @apply text-slate-300 hover:bg-ink-800;
+  }
+  .label {
+    @apply text-xs font-medium uppercase tracking-wide text-slate-400;
+  }
+  .num {
+    @apply font-mono tabular-nums;
+  }
+  .link {
+    @apply text-brand hover:text-emerald-300 underline-offset-2 hover:underline;
+  }
+}
