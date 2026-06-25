@@ -3,7 +3,8 @@
 // review reason about the same spot.
 
 import { stageBaselineStrength } from "./config";
-import { countPairs, heroBoardStrength, itemCount } from "./strength";
+import { countPairs, fieldedTraitCounts, heroBoardStrength, itemCount } from "./strength";
+import { traitBoostBonus } from "./conditions";
 import type { Game, SolverState } from "./types";
 
 export function stagePhase(stage: number): "early" | "midgame" | "late" {
@@ -20,8 +21,10 @@ export function avgBotStrength(game: Game): number {
 
 export function toSolverState(game: Game): SolverState {
   const hero = game.hero;
+  const c = game.conditions;
   const baseline = stageBaselineStrength(game.stage);
-  const hs = heroBoardStrength(hero);
+  // Fold combat conditions into the board-strength bucket so the solver sees them.
+  const hs = heroBoardStrength(hero) * c.strengthMult + traitBoostBonus(fieldedTraitCounts(hero.board), c);
   const ratio = hs / baseline;
 
   const board_strength = ratio < 0.92 ? "weak" : ratio > 1.07 ? "strong" : "medium";

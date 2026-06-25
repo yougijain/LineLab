@@ -43,6 +43,10 @@ class CompareRequest(BaseModel):
     state: GameState
     actions: Optional[List[ActionInput]] = None
     n_rollouts: int = Field(3000, ge=200, le=20000)
+    # If provided, overrides the state-derived seed (true-randomness / fresh sampling).
+    # When None (default) the seed is derived from the state, so the result is
+    # deterministic and cacheable.
+    seed: Optional[int] = None
 
 
 class Branch(BaseModel):
@@ -73,6 +77,34 @@ class CompareResponse(BaseModel):
     n_rollouts: int
     seed: int
     elapsed_ms: float
+    cached: bool
+
+
+# ---- Future-stage projection ----
+
+class ProjectRequest(BaseModel):
+    state: GameState
+    line_key: Optional[str] = None          # default = best line
+    actions: Optional[List[ActionInput]] = None
+    n_rollouts: int = Field(2000, ge=200, le=8000)
+
+
+class StageProjectionModel(BaseModel):
+    stage: int
+    survival: float           # fraction of rollouts the hero is still alive entering this stage
+    exp_hp: float             # mean hp over surviving rollouts
+    strength_vs_lobby: float  # mean hero_strength / lobby_avg (1.0 == parity)
+    exp_placement: float
+
+
+class ProjectResponse(BaseModel):
+    state: GameState
+    line_key: str
+    line_label: str
+    trajectory: List[StageProjectionModel]
+    watch_next: str
+    final_placement: float
+    top4_rate: float
     cached: bool
 
 
@@ -113,6 +145,22 @@ class ReviewResponse(BaseModel):
     band: str
     main_leak: str
     study_index: int               # index of the worst decision (for "drill this")
+
+
+# ---- LLM chat coach ----
+
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class CoachChatRequest(BaseModel):
+    state: GameState
+    compare: Optional[CompareResponse] = None
+    log: List[ReviewDecision] = Field(default_factory=list)
+    history: List[ChatTurn] = Field(default_factory=list)
+    message: str = Field(..., min_length=1, max_length=2000)
+    tier: Literal["beginner", "standard", "pro"] = "standard"
 
 
 class ScenarioModel(BaseModel):

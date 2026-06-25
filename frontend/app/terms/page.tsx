@@ -17,19 +17,21 @@ export default function TermsPage() {
         <section>
           <h2 className="font-semibold text-white">2. What LineLab is</h2>
           <p className="mt-1">
-            LineLab provides an original auto-battler decision-theory solver and
-            educational study material. The Solver operates on a fictional game
-            model and is for learning and analysis only. Outputs are estimates
-            from a Monte Carlo simulation and are not guarantees of any in-game
-            result.
+            LineLab is an educational tool for learning Teamfight Tactics
+            fundamentals. The Arena and Solver run on an original simulation model
+            and are for learning and analysis only; LineLab uses no Riot Games
+            assets, artwork, or game data. Outputs are estimates from a Monte
+            Carlo simulation and are not guarantees of any in-game result.
           </p>
         </section>
         <section>
           <h2 className="font-semibold text-white">3. No affiliation</h2>
           <p className="mt-1">
             LineLab is independent and is not affiliated with, endorsed by, or
-            sponsored by any game publisher. Any third-party trademarks referenced
-            for descriptive purposes remain the property of their owners.
+            sponsored by Riot Games. Teamfight Tactics and TFT are trademarks of
+            Riot Games, Inc., referenced nominatively for descriptive and
+            educational purposes; all trademarks remain the property of their
+            owners.
           </p>
         </section>
         <section>

@@ -10,22 +10,24 @@ export default function Footer() {
               Line<span className="text-brand">Lab</span>
             </div>
             <p className="mt-2 leading-relaxed">
-              An independent study tool for auto-battler macro decisions. The
-              Solver is an original decision-theory engine and is not affiliated
-              with, endorsed by, or connected to any game publisher.
+              An independent tool for learning Teamfight Tactics fundamentals. It
+              uses no Riot Games assets, data, or live-client access, and is not
+              affiliated with or endorsed by Riot Games.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-x-12 gap-y-2">
+            <Link href="/learn" className="hover:text-white">Learn</Link>
+            <Link href="/play" className="hover:text-white">Arena</Link>
             <Link href="/solver" className="hover:text-white">Solver</Link>
-            <Link href="/study" className="hover:text-white">TFT Study</Link>
             <Link href="/compliance" className="hover:text-white">Compliance</Link>
             <Link href="/terms" className="hover:text-white">Terms</Link>
             <Link href="/privacy" className="hover:text-white">Privacy</Link>
           </div>
         </div>
         <div className="mt-8 text-xs text-slate-500">
-          © {new Date().getFullYear()} LineLab. The Solver uses no third-party
-          game IP, assets, or live-client data.
+          © {new Date().getFullYear()} LineLab. Uses no Riot Games assets, data,
+          or live-client access. Teamfight Tactics and TFT are trademarks of Riot
+          Games, Inc.
         </div>
       </div>
     </footer>

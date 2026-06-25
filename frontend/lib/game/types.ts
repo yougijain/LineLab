@@ -16,6 +16,16 @@ export interface FieldUnit {
   cell: number | null; // board cell index when fielded
 }
 
+export interface BotBoard {
+  units: FieldUnit[]; // representative, read-only — "what they're building"
+  level: number;
+  traits: Record<string, number>; // distinct fielded units per trait
+  itemCount: number;
+  identityKey: string;
+  identityLabel: string;
+  buildLine: string; // one-liner
+}
+
 export interface Bot {
   id: string;
   name: string;
@@ -23,6 +33,8 @@ export interface Bot {
   strength: number;
   alive: boolean;
   placement: number;
+  streak: number;
+  board: BotBoard;
 }
 
 export interface Hero {
@@ -92,6 +104,43 @@ export interface RoundLog {
   hpLoss: number;
 }
 
+export type CondTier = "common" | "rare" | "prismatic";
+export type CondCategory = "econ" | "combat" | "trait" | "tempo";
+
+export interface ConditionDef {
+  key: string;
+  name: string;
+  blurb: string;
+  layer: "modifier" | "event";
+  tier: CondTier;
+  category: CondCategory;
+  interestCapDelta?: number;
+  baseIncomeDelta?: number;
+  lossGold?: number;
+  xpCostDelta?: number;
+  refreshCostDelta?: number;
+  freeRolls?: number;
+  strengthMult?: number;
+  lossDmgMult?: number;
+  traitBoost?: { family: string; minBp: number; flat: number };
+  onPick?: { level?: number; gold?: number };
+}
+
+export interface ActiveConditions {
+  modifiers: string[]; // chosen modifier keys
+  event: string | null; // current stage event key
+  // derived (recomputed by recomputeConditions):
+  interestCap: number;
+  baseIncome: number;
+  xpCost: number;
+  refreshCost: number;
+  freeRolls: number;
+  strengthMult: number;
+  lossDmgMult: number;
+  lossGold: number;
+  traitBoost: Record<string, { minBp: number; flat: number }>;
+}
+
 export interface Game {
   rngState: number;
   seed: number;
@@ -110,4 +159,8 @@ export interface Game {
   planPre: SolverState | null;
   planStartLevel: number;
   planRerolls: number;
+  // conditions (augment-like modifiers + per-stage lobby events)
+  conditions: ActiveConditions;
+  pendingOffer: string[] | null; // modifier keys offered (pick-1); null = none pending
+  freeRollsLeft: number; // free refreshes remaining this plan phase
 }
