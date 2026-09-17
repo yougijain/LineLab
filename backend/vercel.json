@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
+  "env": {
+    "LINELAB_CORS_ORIGINS": "https://linelab-yougijain.vercel.app,http://localhost:3000,http://127.0.0.1:3000",
+    "LINELAB_CORS_ORIGIN_REGEX": "^https://linelab-[a-z0-9-]+-yougijain\\.vercel\\.app$"
+  }
+}

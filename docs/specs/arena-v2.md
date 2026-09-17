@@ -1,9 +1,13 @@
-# LineLab Arena v2 — design specs (design workflow)
+# LineLab Arena — v2 build specs
 
+Implementation specs for the second Arena pass: simulated opponent boards and
+scouting, economy conditions, the forward-looking coach and verdicts, the
+info/clarity layer, and the optional LLM chat-coach. Kept as a record of *why*
+the Arena behaves the way it does. For the shipped model itself, see
+[`../MODEL.md`](../MODEL.md); where these specs and the code disagree, the code
+is authoritative.
 
 ## SPEC: opponent_boards_scouting
-
-I have all I need. Here is the implementation-ready spec.
 
 ---
 
@@ -191,8 +195,6 @@ Modifiers are sized at roughly **+3-6% placement EV** each (Prismatic ~ two Rare
 
 ## SPEC: coach_future_and_verdicts
 
-I have everything needed. Here is the implementation-ready spec.
-
 ---
 
 # TASK C — Comprehensive Coach: Future-Stage Projection + Per-Turn Verdicts
@@ -301,8 +303,6 @@ export interface DecisionRecord {
 **Files touched:** `backend/app/solver/rollout.py`, `evaluator.py`, `models.py`, `main.py` (+`/api/project`); `frontend/lib/api.ts`, `lib/game/types.ts`, `lib/game/engine.ts`, `app/play/page.tsx`, `components/play/CoachPanel.tsx`, new `components/solver/PlanView.tsx`, `Sparkline.tsx`, `components/play/History.tsx`, chip wiring in `StatusBar.tsx`.
 
 ## SPEC: info_and_clarity
-
-I have everything I need. Writing the spec.
 
 ---
 
@@ -430,8 +430,6 @@ Beginner: always exactly one sentence, imperative, no metrics. Standard appends 
 **Edited:** `data.ts` (+blurbs/helpers), `engine.ts` (`ActiveTrait` fields), `StatusBar.tsx`, `UnitCard.tsx` (+`onInspect`), `Board/Bench/Shop.tsx` (lift inspect), `CoachPanel.tsx` (drop inline nudge), `play/page.tsx` (compose). All CSS via existing `card btn-primary chip seg label num` classes.
 
 ## SPEC: chat_coach_llm
-
-I have everything I need. Here is the implementation-ready spec.
 
 ---
 

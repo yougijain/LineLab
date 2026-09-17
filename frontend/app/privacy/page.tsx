@@ -1,4 +1,7 @@
-export const metadata = { title: "LineLab — Privacy Policy" };
+export const metadata = {
+  title: "Privacy Policy",
+  description: "What LineLab stores, what it does not, and how to get data removed.",
+};
 
 export default function PrivacyPage() {
   return (

@@ -1,4 +1,7 @@
-export const metadata = { title: "LineLab — Terms of Service" };
+export const metadata = {
+  title: "Terms of Service",
+  description: "The terms that apply to using LineLab.",
+};
 
 export default function TermsPage() {
   return (
