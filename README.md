@@ -180,6 +180,23 @@ set those as environment variables in the Vercel dashboard. Without them the
 backend still runs: it falls back to the local JSON scenario store and leaves the
 chat-coach off.
 
+### The Supabase scenario store
+
+Setting `SUPABASE_DB_URL` switches the API off the JSON fallback. Use the
+**Session pooler** string from the dashboard's *Connect* dialog — it suits a
+long-lived ASGI process. The transaction pooler (6543) also works, because
+`db.py` disables prepared statements.
+
+The app creates its own table on first connect (`ensure_ready`, idempotent) and
+seeds the built-in teaching spots, so there is no migration step to run.
+
+`public.scenarios` has **RLS enabled with no policies**, deliberately. The API is
+the table's only client and connects as `postgres`, which bypasses RLS; nothing
+reaches it through PostgREST. Leaving RLS off would make the table readable and
+writable by anyone holding the project's publishable key, which is public by
+design. Don't add permissive policies unless a client starts talking to Supabase
+directly.
+
 Self-hosting instead of Vercel works unchanged — the backend is a plain
 `uvicorn app.main:app` ASGI app, so Render / Fly.io / Railway need no extra
 config beyond the environment variables above.
