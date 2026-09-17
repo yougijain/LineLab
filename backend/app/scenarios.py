@@ -4,12 +4,20 @@ Scenario store.
 Ships a set of built-in teaching scenarios and lets users save their own. User
 scenarios persist to a JSON file so the prototype survives restarts without a
 full database (Postgres/Supabase is the production target — see README).
+
+The JSON file is a *fallback*, and it is not always writable: on a serverless
+host the application directory is read-only. Reads therefore never raise — the
+built-in scenarios must keep loading regardless — and writes raise
+``StoreUnavailable`` so the API can answer 503 rather than 500. Set
+``LINELAB_DATA_DIR`` to a writable path (and ``SUPABASE_DB_URL`` for real
+persistence) when deploying.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import uuid
 from pathlib import Path
@@ -20,9 +28,16 @@ from .models import GameState, ScenarioModel
 
 logger = logging.getLogger("linelab.scenarios")
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+DATA_DIR = Path(
+    os.environ.get("LINELAB_DATA_DIR")
+    or Path(__file__).resolve().parent.parent / "data"
+)
 SAVED_PATH = DATA_DIR / "scenarios.json"
 _lock = threading.Lock()
+
+
+class StoreUnavailable(RuntimeError):
+    """The JSON fallback store cannot be written (e.g. read-only filesystem)."""
 
 
 # Built-in teaching spots — each illustrates one macro decision.
@@ -79,27 +94,49 @@ BUILTIN: List[ScenarioModel] = [
 ]
 
 
-def _ensure_file() -> None:
+def _ensure_dir() -> None:
+    """Create the data directory. Raises OSError if the filesystem is read-only."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    if not SAVED_PATH.exists():
-        SAVED_PATH.write_text("[]", encoding="utf-8")
+
+
+def json_store_writable() -> bool:
+    """Whether user scenarios can actually be persisted to the JSON fallback."""
+    try:
+        _ensure_dir()
+        return os.access(DATA_DIR, os.W_OK)
+    except OSError:
+        return False
 
 
 def _load_saved() -> List[ScenarioModel]:
-    _ensure_file()
+    """Read saved scenarios. Never raises — an unreadable store is an empty one."""
     try:
         raw = json.loads(SAVED_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+    except FileNotFoundError:
         return []
-    return [ScenarioModel(**item) for item in raw]
+    except (json.JSONDecodeError, OSError, ValueError):
+        logger.warning("Saved-scenario store unreadable; serving built-ins only",
+                       exc_info=True)
+        return []
+    try:
+        return [ScenarioModel(**item) for item in raw]
+    except (TypeError, ValueError):
+        logger.warning("Saved-scenario store is malformed; ignoring it", exc_info=True)
+        return []
 
 
 def _write_saved(items: List[ScenarioModel]) -> None:
-    _ensure_file()
-    SAVED_PATH.write_text(
-        json.dumps([i.model_dump() for i in items], indent=2),
-        encoding="utf-8",
-    )
+    try:
+        _ensure_dir()
+        SAVED_PATH.write_text(
+            json.dumps([i.model_dump() for i in items], indent=2),
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        raise StoreUnavailable(
+            "Saved scenarios need a writable store. Set SUPABASE_DB_URL for "
+            "persistence, or LINELAB_DATA_DIR to a writable path."
+        ) from exc
 
 
 def using_db() -> bool:

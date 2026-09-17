@@ -22,3 +22,6 @@ next-env.d.ts
 Thumbs.db
 .idea/
 .vscode/
+
+# Agent / assistant tooling
+.claude/

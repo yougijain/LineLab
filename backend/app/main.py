@@ -99,6 +99,9 @@ def health() -> dict:
         "service": "linelab-solver",
         "version": app.version,
         "scenario_store": "supabase" if scenarios.using_db() else "json",
+        "scenario_store_writable": (
+            True if scenarios.using_db() else scenarios.json_store_writable()
+        ),
         "chat_coach": chat_enabled(),
     }
 
@@ -232,12 +235,19 @@ def get_scenarios() -> List[ScenarioModel]:
 
 @app.post("/api/scenarios", response_model=ScenarioModel)
 def post_scenario(req: SaveScenarioRequest) -> ScenarioModel:
-    return scenarios.save_scenario(req.name, req.description, req.state)
+    try:
+        return scenarios.save_scenario(req.name, req.description, req.state)
+    except scenarios.StoreUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.delete("/api/scenarios/{scenario_id}")
 def remove_scenario(scenario_id: str) -> dict:
-    if not scenarios.delete_scenario(scenario_id):
+    try:
+        deleted = scenarios.delete_scenario(scenario_id)
+    except scenarios.StoreUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not deleted:
         raise HTTPException(status_code=404, detail="Scenario not found or is built-in")
     return {"deleted": scenario_id}
 

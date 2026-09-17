@@ -2,6 +2,12 @@
 
 **Learn the handful of Teamfight Tactics decisions that get you to top 4.**
 
+**[Live site](https://linelab-yougijain.vercel.app)** ·
+[Learn](https://linelab-yougijain.vercel.app/learn) ·
+[Arena](https://linelab-yougijain.vercel.app/play) ·
+[Solver](https://linelab-yougijain.vercel.app/solver) ·
+[API health](https://linelab-api-yougijain.vercel.app/api/health)
+
 LineLab is an independent, beginner-focused tool for learning TFT *fundamentals* —
 the durable, patch-agnostic habits (economy, leveling, rolling, items, positioning,
 reading the lobby) that separate a bleeding-out new player from a reliable top-4
@@ -49,6 +55,7 @@ backend/    FastAPI app + Monte Carlo solver
     models.py          Pydantic wire models
     solver/            the engine (economy, leveling, shop, rollout, evaluator, …)
     chat.py            optional Anthropic-backed chat-coach
+  api/index.py         serverless entrypoint (re-exports the ASGI app)
   tests/               pytest suite
 frontend/   Next.js app
   app/                 landing, learn, play (Arena), solver, compliance, terms, privacy
@@ -56,7 +63,7 @@ frontend/   Next.js app
   lib/coach/           one-verb coach (ROLL/LEVEL/SAVE/STABILIZE)
   lib/learn/           fundamentals curriculum content
   components/          UI (Nav, Footer, play/*, solver/*, learn/*, coach/*)
-docs/       design + model notes
+docs/       model notes + build specs (see docs/README.md)
 ```
 
 ## Running locally
@@ -70,7 +77,7 @@ Next.js frontend (the UI).
 cd backend
 python -m venv .venv
 . .venv/Scripts/activate          # macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt   # drop the second file for runtime only
 cp .env.example .env              # optional: fill in for Supabase / chat-coach
 uvicorn app.main:app --port 8000
 ```
@@ -101,6 +108,11 @@ Real secrets live only in **gitignored** `.env` files (never committed). See
 - `SUPABASE_DB_URL` — Postgres session-pooler connection string (optional; enables the Supabase scenario store)
 - `ANTHROPIC_API_KEY` — enables the AI chat-coach (optional)
 - `NEXT_PUBLIC_API_URL` — where the frontend finds the backend (defaults to `http://localhost:8000`)
+- `LINELAB_DATA_DIR` — where the JSON fallback store keeps saved scenarios (defaults to `backend/data`). Point it at a writable path on hosts that mount the app directory read-only.
+- `LINELAB_CORS_ORIGINS` / `LINELAB_CORS_ORIGIN_REGEX` — who may call the API from a browser (defaults to localhost)
+
+`GET /api/health` reports `scenario_store` and `scenario_store_writable`, so you
+can tell at a glance whether saving is actually going to work.
 
 ## The Solver API
 
@@ -134,11 +146,43 @@ reading. The Arena's opponents are simulated. See
 
 ## Deployment
 
-- **Frontend** → Vercel (set `NEXT_PUBLIC_API_URL` to your backend's URL).
-- **Backend** → Render / Fly.io / Railway (`uvicorn app.main:app`).
-- **Database** → Supabase Postgres (set `SUPABASE_DB_URL`).
+Both halves run on Vercel as two projects off this one repo, each with its own
+root directory. Pushing to `main` redeploys both.
 
-Set all secrets as host environment variables — never commit them.
+| Project | Root dir | Config | URL |
+| --- | --- | --- | --- |
+| `linelab` | `frontend/` | [`frontend/vercel.json`](frontend/vercel.json) | <https://linelab-yougijain.vercel.app> |
+| `linelab-api` | `backend/` | [`backend/vercel.json`](backend/vercel.json) | <https://linelab-api-yougijain.vercel.app> |
+
+Non-secret wiring lives in those two `vercel.json` files rather than in dashboard
+settings, so the deployment is reproducible from the repo:
+
+- the frontend's `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SITE_URL`;
+- the backend's `LINELAB_CORS_ORIGINS`, plus `LINELAB_CORS_ORIGIN_REGEX` so
+  per-branch preview deployments are allowed without a redeploy.
+
+Two things are worth knowing if you fork this:
+
+- The backend routes through `backend/api/index.py`, which just re-exports the
+  ASGI app. It uses `routes` rather than `rewrites` — Vercel hands a rewritten
+  request the *destination* path, which would make every route arrive at FastAPI
+  as `/api/index`.
+- Solver calls are CPU-bound Monte Carlo runs (~3s at 2 000 rollouts, the
+  frontend's ceiling is 4 500), so the function is given `maxDuration: 60`.
+
+The backend also sets `LINELAB_DATA_DIR=/tmp/linelab`, because the application
+directory is read-only on the serverless runtime. `/tmp` is per-instance and
+ephemeral, so saved scenarios survive only within a warm instance — set
+`SUPABASE_DB_URL` for real persistence.
+
+Secrets (`SUPABASE_DB_URL`, `ANTHROPIC_API_KEY`) are **not** in `vercel.json` —
+set those as environment variables in the Vercel dashboard. Without them the
+backend still runs: it falls back to the local JSON scenario store and leaves the
+chat-coach off.
+
+Self-hosting instead of Vercel works unchanged — the backend is a plain
+`uvicorn app.main:app` ASGI app, so Render / Fly.io / Railway need no extra
+config beyond the environment variables above.
 
 ## License
 
