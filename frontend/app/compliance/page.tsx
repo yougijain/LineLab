@@ -1,4 +1,8 @@
-export const metadata = { title: "LineLab — Compliance overview" };
+export const metadata = {
+  title: "Compliance",
+  description:
+    "How LineLab stays clear of Riot Games IP: no assets, artwork, champion data, patch tables, or live-client access.",
+};
 
 function Row({ ok, children }: { ok: boolean; children: React.ReactNode }) {
   return (

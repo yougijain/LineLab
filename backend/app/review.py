@@ -6,7 +6,7 @@ chess.com-style but with original labels (Keystone -> Misline). For each
 decision we run the solver on the pre-decision state, locate the line the player
 actually took, and score the expected-value gap vs the best line.
 
-All thresholds come from the design pass (docs/design-game.md). The grading
+All thresholds come from the design pass (docs/specs/arena-v1.md). The grading
 logic lives server-side so the same rules back the live coach and the review.
 """
 

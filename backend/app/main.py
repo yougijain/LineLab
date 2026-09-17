@@ -48,14 +48,26 @@ app = FastAPI(
     ),
 )
 
-# CORS for the Next.js dev server / deployed frontend.
-_origins = os.environ.get(
-    "LINELAB_CORS_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000",
-).split(",")
+# CORS for the Next.js dev server and any deployed frontend.
+#
+# ``LINELAB_CORS_ORIGINS`` is a comma-separated allowlist of exact origins.
+# ``LINELAB_CORS_ORIGIN_REGEX`` additionally allows a pattern, which is how
+# per-branch preview deployments (whose hostnames are generated per build) get
+# access without redeploying this service.
+_origins = [
+    o.strip()
+    for o in os.environ.get(
+        "LINELAB_CORS_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000",
+    ).split(",")
+    if o.strip()
+]
+_origin_regex = os.environ.get("LINELAB_CORS_ORIGIN_REGEX", "").strip() or None
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in _origins if o.strip()] or ["*"],
+    allow_origins=_origins or ["*"],
+    allow_origin_regex=_origin_regex,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

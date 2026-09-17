@@ -1,12 +1,16 @@
+# Runtime dependencies for the LineLab Solver API.
+# Dev/test-only packages live in requirements-dev.txt.
+
 fastapi==0.115.6
-uvicorn[standard]==0.34.0
 pydantic==2.10.4
+python-dotenv>=1.0,<2
+
+# Local/self-hosted ASGI server. Vercel supplies its own runtime and ignores this.
+uvicorn[standard]==0.34.0
+
 # Supabase / Postgres scenario store (optional — activates when SUPABASE_DB_URL is set)
 psycopg[binary]>=3.2,<3.3
 psycopg-pool>=3.2,<3.3
-python-dotenv>=1.0,<2
+
 # LLM chat-coach (optional — activates when ANTHROPIC_API_KEY is set)
 anthropic>=0.40,<1
-# dev / test
-pytest==8.3.4
-httpx==0.28.1

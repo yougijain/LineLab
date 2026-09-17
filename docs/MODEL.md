@@ -108,4 +108,4 @@ The TFT-branded **Study** product is kept strictly separate — static, pre-game
 content and self-player post-game review — and only ever uses approved assets
 and APIs after Riot clearance. The two products are separated in code, UI and
 data so a reviewer can evaluate each unambiguously. See
-[`RIOT_SUBMISSION.md`](RIOT_SUBMISSION.md).
+[`specs/riot-submission-notes.md`](specs/riot-submission-notes.md).
