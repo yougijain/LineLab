@@ -108,6 +108,11 @@ Real secrets live only in **gitignored** `.env` files (never committed). See
 - `SUPABASE_DB_URL` — Postgres session-pooler connection string (optional; enables the Supabase scenario store)
 - `ANTHROPIC_API_KEY` — enables the AI chat-coach (optional)
 - `NEXT_PUBLIC_API_URL` — where the frontend finds the backend (defaults to `http://localhost:8000`)
+- `LINELAB_DATA_DIR` — where the JSON fallback store keeps saved scenarios (defaults to `backend/data`). Point it at a writable path on hosts that mount the app directory read-only.
+- `LINELAB_CORS_ORIGINS` / `LINELAB_CORS_ORIGIN_REGEX` — who may call the API from a browser (defaults to localhost)
+
+`GET /api/health` reports `scenario_store` and `scenario_store_writable`, so you
+can tell at a glance whether saving is actually going to work.
 
 ## The Solver API
 
@@ -164,6 +169,11 @@ Two things are worth knowing if you fork this:
   as `/api/index`.
 - Solver calls are CPU-bound Monte Carlo runs (~3s at 2 000 rollouts, the
   frontend's ceiling is 4 500), so the function is given `maxDuration: 60`.
+
+The backend also sets `LINELAB_DATA_DIR=/tmp/linelab`, because the application
+directory is read-only on the serverless runtime. `/tmp` is per-instance and
+ephemeral, so saved scenarios survive only within a warm instance — set
+`SUPABASE_DB_URL` for real persistence.
 
 Secrets (`SUPABASE_DB_URL`, `ANTHROPIC_API_KEY`) are **not** in `vercel.json` —
 set those as environment variables in the Vercel dashboard. Without them the
